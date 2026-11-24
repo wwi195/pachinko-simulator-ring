@@ -726,3 +726,47 @@ body {
 .rush-phase { font-size: 15px; font-weight: bold; padding: 4px 14px; border-radius: 20px; }
 .rush-phase.first { background: #fde8e6; color: #b3150f; border: 1px solid #e0322a; }
 .rush-phase.second { background: #ede6f5; color: var(--c-ruri); border: 1px solid #7b3fb8; }
+
+/* ラッシュ前半：保留5個（左から消化。消化すると右の保留が左へずれる） */
+.holds { display: flex; gap: 8px; justify-content: center; margin: 10px 0; min-height: 46px; }
+.hold {
+  width: 46px; height: 46px; border-radius: 50%;
+  border: 3px solid var(--c-mizu);
+  background: radial-gradient(circle at 35% 35%, #c9b6e4, var(--c-ruri));
+  box-shadow: 0 0 8px rgba(95, 143, 122, 0.6);
+}
+.holds.appear .hold { animation: hold-appear 0.3s ease-out both; }
+.holds.appear .hold:nth-child(2) { animation-delay: 0.08s; }
+.holds.appear .hold:nth-child(3) { animation-delay: 0.16s; }
+.holds.appear .hold:nth-child(4) { animation-delay: 0.24s; }
+.holds.shift .hold { animation: hold-shift 0.25s ease-out; }
+@keyframes hold-appear { from { opacity: 0; transform: scale(0.3); } to { opacity: 1; transform: scale(1); } }
+@keyframes hold-shift { from { transform: translateX(54px); } to { transform: translateX(0); } }
+
+/* 前半で当たったときの「手落下」：筆文字（Yuji Boku）。文字の中は黒、外側に白、一番外に細いレインボー */
+.te-rakka-wrap {
+  margin: 40px 0; width: 100%; box-sizing: border-box;
+  padding: 60px 0;
+  background: #3a3a3a;
+  display: flex; justify-content: center;
+  animation: te-rakka 0.5s ease-out;
+}
+.te-rakka {
+  position: relative; isolation: isolate;
+  margin: 0;
+  font-family: 'Yuji Boku', serif;
+  font-size: 64px; letter-spacing: 6px;
+  color: #000;
+}
+.te-rakka::before, .te-rakka::after { content: attr(data-text); position: absolute; inset: 0; }
+.te-rakka::after { z-index: -1; color: #fff; -webkit-text-stroke: 9px #fff; }
+.te-rakka::before {
+  z-index: -2;
+  color: transparent;
+  -webkit-text-stroke: 15px transparent;
+  background: linear-gradient(90deg, #ff3b3b, #ff9f1a, #ffe81a, #3bdc5a, #1ab8ff, #5a5bff, #c43bff);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+@keyframes te-rakka { 0% { transform: scale(1.6); opacity: 0; } 40% { transform: scale(0.96); opacity: 1; } 100% { transform: scale(1); } }
+.yodel-sub { font-size: 0.55em; margin-left: 2px; }

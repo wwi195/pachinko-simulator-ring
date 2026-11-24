@@ -223,16 +223,18 @@ function backToNormal() {
 
 function handleRushJudge() {
   if (game.pending.toRush) {
-    addLog('ラッシュ突入！', 'rush');
+    addLog('貞子覚醒BURST突入！', 'rush');
     setState('judge_win');
   } else {
     finishSingle();
-    addLog('ラッシュ非突入 → 通常へ');
+    addLog('貞子覚醒BURST非突入 → 通常へ');
     setState('judge_lose');
   }
 }
 
 // ---- ラッシュ（ST75回＝前半5回＋後半70回） ----
+
+const TE_RAKKA_MS = 500;
 
 function rushSpinNo() {
   return RUSH_ST - game.stRemaining;
@@ -262,9 +264,15 @@ function runRushSpin(opts = {}) {
     game.session.hits++;
     const actual = award(bonus.balls);
     game.pending = { spins, bonus };
-    addLog(`ST${spins}回転目（${bonus.first ? '前半' : '後半'}）で当選！ ${bonus.balls.toLocaleString()}個 ＋${actual.toLocaleString()}球`, 'rush');
+    addLog(`ST${spins}回転目（${bonus.first ? `保留${spins}個目` : '呪いの連鎖'}）で当選！ ${bonus.balls.toLocaleString()}個 ＋${actual.toLocaleString()}球`, 'rush');
     game.stRemaining = RUSH_ST;
-    setState('rush_hit');
+    if (bonus.first) {
+      // 前半（保留）で当たったら「手落下」を0.5秒出してからボーナス告知
+      setState('te_rakka');
+      setTimeout(() => { if (game.state === 'te_rakka') setState('rush_hit'); }, TE_RAKKA_MS);
+    } else {
+      setState('rush_hit');
+    }
     return true;
   }
   if (game.stRemaining <= 0) {
@@ -312,7 +320,7 @@ function endSession() {
   const last = game.hitHistory[0];
   if (last && last.chain === null) last.chain = s.hits;
   game.lastRankResult = recordRanking(Math.round(s.actualBalls), s.hits);
-  addLog(`ラッシュ終了 → ${s.hits}連で終了`);
+  addLog(`貞子覚醒BURST終了 → ${s.hits}連で終了`);
   setState('session_result');
 }
 
@@ -526,7 +534,7 @@ function renderHeader() {
 function renderModeBadge() {
   const el = document.getElementById('mode-badge');
   if (game.mode === 'rush') {
-    el.textContent = 'ラッシュ中';
+    el.textContent = '貞子覚醒BURST中';
     el.className = 'rush';
   } else {
     el.textContent = '通常時';
@@ -598,27 +606,45 @@ function noRushStreakNoticeHtml() {
   if (n < NO_RUSH_STREAK_NOTICE_MIN) return '';
   const p = Math.pow(P_NO_RUSH_FROM_HIT, n);
   const hamari = game.normalSpins - game.lastRushSpins;
-  return rareNote(`ラッシュ非突入　${n}回連続中<br>発生率 ${pctText(p)}%${rareText(p)}<br>前回のラッシュ突入から ${hamari.toLocaleString()}回転ハマり`);
+  return rareNote(`貞子覚醒BURST非突入　${n}回連続中<br>発生率 ${pctText(p)}%${rareText(p)}<br>前回の貞子覚醒BURST突入から ${hamari.toLocaleString()}回転ハマり`);
 }
 
 const P_NORMAL_HIT_DISPLAY = '合算 約1/348.6（図柄揃い 1/399.7・チャージ 1/2723.4）';
 const pct1 = (p) => Math.round(p * 1000) / 10;
 const P_RUSH_DISPLAY = `ST${RUSH_ST}回 継続率 約${pct1(rushContinueProbability())}%<br>`
-  + `前半${RUSH_FIRST_SPINS}回 1/8（約${pct1(rushFirstHitProbability())}%）／後半${RUSH_SECOND_SPINS}回 1/129.7（約${pct1(rushSecondHitProbability())}%）`;
+  + `保留${RUSH_FIRST_SPINS}個 1/8（約${pct1(rushFirstHitProbability())}%）／呪いの連鎖${RUSH_SECOND_SPINS}回 1/129.7（約${pct1(rushSecondHitProbability())}%）`;
 const RUSH_ENTRY_THEORY = `理論 約${Math.round(rushEntryProbability() * 100)}%`;
+
+// 前半5回：保留の画面。0回目は「保留を貯める」（1個目の抽選）、外れたら残りの保留を左から消化する
+function rushHoldsScreen(no) {
+  const left = RUSH_FIRST_SPINS - no; // 残りの保留数
+  const holds = Array.from({ length: left }, () => '<div class="hold closed"></div>').join('');
+  const body = no === 0
+    ? `<p class="rush-phase first">保留${RUSH_FIRST_SPINS}個（1個 1/8）</p>
+       <button class="gasha-button" onclick="handleRushSpin()">保留を<br>貯める</button>`
+    : `<p class="rush-phase first">保留 残り${left}個（1個 1/8）</p>
+       <div class="holds ${no === 1 ? 'appear' : 'shift'}">${holds}</div>
+       <button class="gasha-button" onclick="handleRushSpin()">消化する</button>
+       <button class="btn-sub" onclick="handleRushSkip()">スキップ（残りを全部消化）</button>`;
+  return `<div class="screen">
+    <p class="yodel-label">貞子覚醒BURST<span class="yodel-sub">（${RUSH_FIRST_SPINS}回転）</span></p>
+    <p class="chain-label">${game.session.hits}連チャン中</p>
+    <p class="rush-sub">獲得出玉 <span>${game.session.nominalBalls.toLocaleString()}</span> 個</p>
+    ${body}
+    <p class="prob-hint">${P_RUSH_DISPLAY}</p>
+    ${shareTabHtml('rush')}
+    <button class="btn-taiten" onclick="handleTaiten()">退店する</button>
+  </div>`;
+}
 
 function rushIdleScreen() {
   const no = rushSpinNo(); // これまでに回した回数（0〜74）
-  const inFirst = no < RUSH_FIRST_SPINS;
-  const phase = inFirst
-    ? `<p class="rush-phase first">前半 残り${RUSH_FIRST_SPINS - no}回（1/8）</p>`
-    : `<p class="rush-phase second">後半 残り${game.stRemaining}回（1/129.7）</p>`;
+  if (no < RUSH_FIRST_SPINS) return rushHoldsScreen(no);
   return `<div class="screen">
-    <p class="yodel-label">ラッシュ</p>
+    <p class="yodel-label">呪いの連鎖<span class="yodel-sub">（${RUSH_SECOND_SPINS}回転）</span></p>
     <p class="chain-label">${game.session.hits}連チャン中</p>
     <p class="rush-sub">獲得出玉 <span>${game.session.nominalBalls.toLocaleString()}</span> 個</p>
-    ${phase}
-    <p class="rush-spins">ST残り ${game.stRemaining}回</p>
+    <p class="rush-phase second">残り${game.stRemaining}回（1/129.7）</p>
     <div class="rush-spin-btns">
       <button class="btn-rush-spin" onclick="handleRushSpin()">1回転</button>
       <button class="btn-rush-spin" onclick="handleRushSpin10()">10回転</button>
@@ -636,8 +662,8 @@ function shareNote(text) {
 }
 // ラッシュ：前半は6000 or 3000個（半々）、後半は1500個
 function rushShareHtml(b) {
-  if (!b.first) return shareNote('後半の当たり 1500個 100%');
-  return shareNote(`前半の当たり ${b.balls.toLocaleString()}個 50%`);
+  if (!b.first) return shareNote('呪いの連鎖の当たり 1500個 100%');
+  return shareNote(`保留の当たり ${b.balls.toLocaleString()}個 50%`);
 }
 const CHARGE_SHARE_HTML = shareNote(`チャージ 1/2723.4<br><small>（当たり全体の約${Math.round(P_CHARGE / P_TOTAL_HIT * 100)}%）</small>`);
 
@@ -645,13 +671,13 @@ const CHARGE_SHARE_HTML = shareNote(`チャージ 1/2723.4<br><small>（当た�
 const SHARE_TABLES = {
   zugara: {
     title: '図柄揃い（1500個）のあと',
-    rows: [['ラッシュ突入', '57.4%'], ['通常へ（時短なし）', '42.6%']],
+    rows: [['貞子覚醒BURST突入', '57.4%'], ['通常へ（時短なし）', '42.6%']],
     note: '',
   },
   rush: {
-    title: 'ラッシュ中の当たり',
-    rows: [['前半5回：6000個（10R×4）', '50%'], ['前半5回：3000個（10R×2）', '50%'], ['後半70回：1500個', '100%']],
-    note: 'どれも当たれば前半5回からやり直し。75回スルーで終了',
+    title: '貞子覚醒BURST中の当たり',
+    rows: [['保留5個：6000個（10R×4）', '50%'], ['保留5個：3000個（10R×2）', '50%'], ['呪いの連鎖70回：1500個', '100%']],
+    note: 'どれも当たれば保留5個からやり直し。75回スルーで終了',
   },
 };
 
@@ -747,22 +773,22 @@ function buildScreen(state) {
         <p class="result-sub">${p.interval}回転で大当たり</p>
         ${bonusBox('図柄揃い！', ZUGARA_BALLS)}
         ${hitIntervalProbHtml(p.interval)}
-        <p class="prob-hint">ラッシュ突入率 57.4%</p>
+        <p class="prob-hint">貞子覚醒BURST突入率 57.4%</p>
         <button class="gasha-button" onclick="handleRushJudge()">PUSH</button>
         ${shareTabHtml('zugara')}
       </div>`;
 
     case 'judge_win':
       return `<div class="screen">
-        <p class="judge-win">ラッシュ突入！</p>
-        <p class="result-sub">ST${RUSH_ST}回（前半${RUSH_FIRST_SPINS}回＋後半${RUSH_SECOND_SPINS}回）</p>
-        ${shareNote('ラッシュ突入 57.4%')}
-        <button class="btn-action" onclick="enterRush()">▶ ラッシュへ</button>
+        <p class="judge-win">貞子覚醒BURST<br>突入！</p>
+        <p class="result-sub">ST${RUSH_ST}回（保留${RUSH_FIRST_SPINS}個＋呪いの連鎖${RUSH_SECOND_SPINS}回）</p>
+        ${shareNote('貞子覚醒BURST突入 57.4%')}
+        <button class="btn-action" onclick="enterRush()">▶ 貞子覚醒BURSTへ</button>
       </div>`;
 
     case 'judge_lose':
       return `<div class="screen">
-        <p class="result-main lose small">ラッシュならず…</p>
+        <p class="result-main lose small">貞子覚醒BURSTならず…</p>
         <p class="result-sub">通常時へ戻ります（時短なし）</p>
         ${shareNote('通常へ 42.6%')}
         ${noRushStreakNoticeHtml()}
@@ -782,14 +808,17 @@ function buildScreen(state) {
     case 'rush_idle':
       return rushIdleScreen();
 
+    case 'te_rakka':
+      return `<div class="screen"><div class="te-rakka-wrap"><p class="te-rakka" data-text="手落下">手落下</p></div></div>`;
+
     case 'rush_hit': {
       const b = p.bonus;
       return `<div class="screen">
-        <p class="result-sub">ST${p.spins}回転目（${b.first ? '前半' : '後半'}）で当選</p>
+        <p class="result-sub">ST${p.spins}回転目（${b.first ? `保留${p.spins}個目` : '呪いの連鎖'}）で当選</p>
         <p class="chain-label">${game.session.hits}連チャン</p>
         ${bonusBox('', b.balls, b.first ? 'premium' : 'standard', roundsText(b.balls))}
         ${rushShareHtml(b)}
-        <button class="btn-action" onclick="enterRush()">▶ 次へ（前半5回から）</button>
+        <button class="btn-action" onclick="enterRush()">▶ 次へ（保留を貯めるところから）</button>
       </div>`;
     }
 
@@ -797,7 +826,7 @@ function buildScreen(state) {
       const s = game.session;
       const rank = game.lastRankResult;
       return `<div class="screen">
-        <p class="result-main lose small">ラッシュ終了</p>
+        <p class="result-main lose small">貞子覚醒BURST終了</p>
         <p class="rush-result-title">リザルト</p>
         <div class="rush-result-box">
           <div class="result-row highlight">
@@ -871,7 +900,7 @@ function buildScreen(state) {
             <span class="rr-val">${game.normalHitCount}回</span>
           </div>
           <div class="result-row">
-            <span class="rr-label">ラッシュ突入</span>
+            <span class="rr-label">貞子覚醒BURST突入</span>
             <span class="rr-val">${game.rushEntryCount}回</span>
           </div>
         </div>
