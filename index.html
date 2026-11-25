@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>パチンコシミュレーター（最恐1/399）</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yuji+Boku&text=%E6%89%8B%E8%90%BD%E4%B8%8B&display=swap">
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
   <div id="app">
@@ -78,20 +78,33 @@
     <div id="main-screen"></div>
 
     <div id="rush-stats-bar">
-      <div class="rsb-header">
-        <span class="rsb-title">通算貞子覚醒BURST成績</span>
+      <div class="rsb-title">通算貞子覚醒BURST成績</div>
+      <div class="rsb-row">
+        <span class="rsb-sub">貞子覚醒BURST<small>（保留5個）</small></span>
         <span class="rsb-item">
           <span class="rsb-label">大当たり</span>
-          <span class="rsb-val" id="rs-chain">0回</span>
-          <span class="rsb-prob" id="rs-prob">1/―</span>
+          <span class="rsb-val" id="rs-burst-hits">0回</span>
+          <span class="rsb-prob" id="rs-burst-prob">1/―</span>
         </span>
         <span class="rsb-item">
-          <span class="rsb-label">総回転</span>
-          <span class="rsb-val" id="rs-spins">0回</span>
+          <span class="rsb-label">回転</span>
+          <span class="rsb-val" id="rs-burst-spins">0回</span>
         </span>
         <span class="rsb-item">
           <span class="rsb-label">BIG</span>
           <span class="rsb-val" id="rs-big">0回</span>
+        </span>
+      </div>
+      <div class="rsb-row">
+        <span class="rsb-sub">呪いの連鎖<small>（70回）</small></span>
+        <span class="rsb-item">
+          <span class="rsb-label">大当たり</span>
+          <span class="rsb-val" id="rs-chain-hits">0回</span>
+          <span class="rsb-prob" id="rs-chain-prob">1/―</span>
+        </span>
+        <span class="rsb-item">
+          <span class="rsb-label">回転</span>
+          <span class="rsb-val" id="rs-chain-spins">0回</span>
         </span>
       </div>
     </div>
@@ -119,7 +132,7 @@
   </div>
 
   <script src="logic.js?v=1"></script>
-  <script src="script.js?v=2"></script>
+  <script src="script.js?v=3"></script>
   <script src="https://wwi195.github.io/site-analytics/tracker.js?v=1" data-site-id="pachinko-simulator-ring"></script>
 </body>
 </html>

@@ -22,7 +22,7 @@ const game = {
   rushEntryCount: 0,
   noRushStreak: 0,   // 初当たりでラッシュに入れなかった連続回数
   lastRushSpins: 0,  // 最後に初当たりからラッシュに入ったときの通常時回転数
-  rushAllStats: { totalSpins: 0, hits: 0, big: 0, ends: 0 },
+  rushAllStats: { totalSpins: 0, hits: 0, big: 0, ends: 0, burstSpins: 0, burstHits: 0, chainSpins: 0, chainHits: 0 },
   session: null, // 初当たりから通常に戻るまで { hits, nominalBalls, actualBalls, everRush }
   stRemaining: 0,
   pending: {},
@@ -257,9 +257,13 @@ function runRushSpin(opts = {}) {
   game.rushAllStats.totalSpins++;
   game.stRemaining--;
   const spins = rushSpinNo();
+  // 前半（保留5個＝BURST）と後半（呪いの連鎖）を分けて集計
+  const inBurst = spins <= RUSH_FIRST_SPINS;
+  if (inBurst) game.rushAllStats.burstSpins++; else game.rushAllStats.chainSpins++;
   if (spinRush(spins) === 'hit') {
     const bonus = rollRushBonus(spins);
     game.rushAllStats.hits++;
+    if (inBurst) game.rushAllStats.burstHits++; else game.rushAllStats.chainHits++;
     if (bonus.big) game.rushAllStats.big++;
     game.session.hits++;
     const actual = award(bonus.balls);
@@ -366,7 +370,7 @@ function resetGame() {
     rushEntryCount: 0,
     noRushStreak: 0,
     lastRushSpins: 0,
-    rushAllStats: { totalSpins: 0, hits: 0, big: 0, ends: 0 },
+    rushAllStats: { totalSpins: 0, hits: 0, big: 0, ends: 0, burstSpins: 0, burstHits: 0, chainSpins: 0, chainHits: 0 },
     session: null,
     stRemaining: 0,
     pending: {},
@@ -915,11 +919,14 @@ function buildScreen(state) {
 
 function renderRushStats() {
   const s = game.rushAllStats;
-  const prob = s.hits > 0 && s.totalSpins > 0 ? '1/' + (s.totalSpins / s.hits).toFixed(1) : '1/―';
-  document.getElementById('rs-chain').textContent = s.hits + '回';
-  document.getElementById('rs-prob').textContent = prob;
-  document.getElementById('rs-spins').textContent = s.totalSpins + '回';
+  const prob = (hits, spins) => hits > 0 && spins > 0 ? '1/' + (spins / hits).toFixed(1) : '1/―';
+  document.getElementById('rs-burst-hits').textContent = s.burstHits + '回';
+  document.getElementById('rs-burst-prob').textContent = prob(s.burstHits, s.burstSpins);
+  document.getElementById('rs-burst-spins').textContent = s.burstSpins + '回';
   document.getElementById('rs-big').textContent = s.big + '回';
+  document.getElementById('rs-chain-hits').textContent = s.chainHits + '回';
+  document.getElementById('rs-chain-prob').textContent = prob(s.chainHits, s.chainSpins);
+  document.getElementById('rs-chain-spins').textContent = s.chainSpins + '回';
 }
 
 function renderLog() {
